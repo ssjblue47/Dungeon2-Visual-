@@ -50,16 +50,13 @@ overflow:hidden;
 #playerBar{left:10px;}
 #enemyBar{right:10px;}
 
-.hpFill{
-height:100%;
-background:lime;
-}
+.hpFill{height:100%;background:lime;}
 
 .hpBar span{
 position:absolute;
 width:100%;
 text-align:left;
-padding-left:8px; /* ✅ shift right */
+padding-left:14px; /* 🔥 moved more right */
 font-size:12px;
 top:0;
 }
@@ -123,6 +120,9 @@ Room: <span id="roomText">0/8</span> |
 CRIT: <span id="crit">10%</span>
 </h2>
 
+<!-- 🔥 ALWAYS VISIBLE RESET -->
+<button onclick="reset()">🔄 Reset Run</button>
+
 <div id="scene">
 <div id="playerBar" class="hpBar">
 <div id="playerHP" class="hpFill"></div>
@@ -160,8 +160,10 @@ const enemyHPText=document.getElementById("enemyHPText");
 
 const enemySprite=document.getElementById("enemySprite");
 
+let lastEnemyType=null;
+
 const game={
-player:{hp:100,atk:10,def:5,crit:0.1},
+player:{hp:100,atk:14,def:5,crit:0.1}, /* +4 base dmg */
 enemy:null,
 room:0,
 maxRooms:8,
@@ -195,8 +197,6 @@ setTimeout(()=>f.remove(),200);
 }
 
 function updateUI(){
-game.player.hp=Math.min(game.player.hp,100);
-
 hpEl.innerText=Math.max(0,game.player.hp);
 atkEl.innerText=game.player.atk;
 defEl.innerText=game.player.def;
@@ -204,12 +204,12 @@ roomEl.innerText=game.room + "/" + game.maxRooms;
 critEl.innerText=Math.floor(game.player.crit*100)+"%";
 
 playerHPBar.style.width=(game.player.hp/100*100)+"%";
-playerHPText.innerText=game.player.hp+"/100";
+playerHPText.innerText=Math.floor(game.player.hp)+"/100";
 
 if(game.enemy){
 let max=game.isBoss?100:40;
 enemyHPBar.style.width=(game.enemy.hp/max*100)+"%";
-enemyHPText.innerText=game.enemy.hp+"/"+max;
+enemyHPText.innerText=Math.floor(game.enemy.hp)+"/"+max;
 }else{
 enemyHPBar.style.width="0%";
 enemyHPText.innerText="";
@@ -248,18 +248,34 @@ btn("Quick Attack",()=>combatTurn("Quick Attack"));
 }
 
 else if(game.state==="GAMEOVER"){
-log("💀 GAME OVER - Click below to restart");
+log("💀 GAME OVER");
 btn("🔄 Restart Run",reset);
 }
 
 else if(game.state==="WIN"){
-log("🏆 YOU WON - Play again?");
+log("🏆 YOU WON");
 btn("🔄 Play Again",reset);
 }
 }
 
+function getEnemy(){
+const types=[
+{hp:40,atk:10,def:3,img:"enemy.png"},
+{hp:35,atk:12,def:2,img:"enemy2.png"},
+{hp:45,atk:8,def:4,img:"enemy3.png"}
+];
+
+let pick;
+do{
+pick=types[Math.floor(Math.random()*types.length)];
+}while(pick===lastEnemyType);
+
+lastEnemyType=pick;
+return {...pick};
+}
+
 function enterRoom(){
-game.room++; // ✅ ALWAYS increase
+game.room++;
 
 if(game.room === game.maxRooms){
 startCombat(true);
@@ -278,7 +294,7 @@ log("[Room "+game.room+"] Empty.");
 }
 else if(r===5){
 log("[Room "+game.room+"] Potion +15 HP");
-game.player.hp+=15;
+game.player.hp+=15; /* overflow allowed */
 }
 else{
 loot();
@@ -293,9 +309,9 @@ game.isBoss=isBoss;
 
 game.enemy=isBoss?
 {hp:100,atk:25,def:5}:
-{hp:40,atk:10,def:3};
+getEnemy();
 
-enemySprite.src=isBoss?"boss.png":"enemy.png";
+enemySprite.src=isBoss?"boss.png":game.enemy.img;
 
 game.state="COMBAT";
 log(isBoss?"🔥 BOSS FIGHT 🔥":"Battle starts!");
@@ -304,7 +320,7 @@ render();
 }
 
 function combatTurn(playerMove){
-if(game.state!=="COMBAT"||!game.enemy) return;
+if(game.state!=="COMBAT") return;
 
 const moves=["Punch","Counter","Quick Attack"];
 const enemyMove=moves[Math.floor(Math.random()*3)];
@@ -346,7 +362,6 @@ game.enemy=null;
 
 if(game.isBoss){
 game.state="WIN";
-log("🏆 YOU WIN!");
 }else{
 game.state="PATH";
 }
@@ -366,7 +381,6 @@ log(`Enemy deals ${dmgE}`);
 
 if(game.player.hp<=0){
 game.state="GAMEOVER";
-log("GAME OVER");
 }
 
 updateUI();
@@ -385,14 +399,15 @@ log("[Loot] "+item);
 if(item==="Sword") game.player.atk+=3;
 if(item==="Shield") game.player.def+=2;
 if(item==="Elixir") game.player.hp+=25;
-if(item==="Dagger") game.player.crit+=0.1;
+if(item==="Dagger") game.player.crit+=0.15; /* 🔥 15% */
 }
 
 function reset(){
-game.player={hp:100,atk:10,def:5,crit:0.1};
+game.player={hp:100,atk:14,def:5,crit:0.1};
 game.room=0;
 game.state="CREATION";
 game.enemy=null;
+lastEnemyType=null;
 logDiv.innerHTML="";
 enemySprite.src="";
 updateUI();
