@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tactical Dungeon Crawler</title>
+
+<style>
+body{background:#121212;color:#fff;font-family:monospace;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+#game{width:600px;background:#1e1e1e;padding:20px;border-radius:10px}
+
+#top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+
+#scene{position:relative;height:220px;background:#000;margin:10px 0;border-radius:10px;overflow:hidden}
+
+#bg{position:absolute;width:100%;height:100%;object-fit:cover;opacity:0.4}
+
+.char{position:absolute;bottom:0;height:180px}
+
+#playerImg{left:10px}
+#enemyImg{right:10px}
+
+#log{height:200px;background:#000;padding:10px;overflow-y:auto;margin:10px 0}
+button{width:100%;padding:10px;margin:5px 0;background:#333;color:#fff;border:none;cursor:pointer}
+</style>
+
+</head>
+
+<body>
+
+<div id="game">
+
+<h1>Dungeon Crawler</h1>
+
+<div id="top">
+<div>
+HP: <span id="hp">100</span> |
+ATK: <span id="atk">10</span> |
+DEF: <span id="def">5</span> |
+Room: <span id="room">0/8</span>
+</div>
+</div>
+
+<div id="scene">
+<img id="bg" src="room.png">
+<img id="playerImg" class="char" src="player.png">
+<img id="enemyImg" class="char" src="enemy.png" style="display:none;">
+</div>
+
+<div id="log"></div>
+<div id="actions"></div>
+
+</div>
+
+<script>
+
+const game={
+player:{hp:100,atk:10,def:5,inventory:[]},
+enemy:null,
+room:0,
+maxRooms:8,
+state:"CREATION",
+isBoss:false
+};
+
+const logDiv=document.getElementById("log");
+const actions=document.getElementById("actions");
+
+const bg=document.getElementById("bg");
+const playerImg=document.getElementById("playerImg");
+const enemyImg=document.getElementById("enemyImg");
+
+function setScene(type){
+if(type==="room"){
+bg.src="room.png";
+enemyImg.style.display="none";
+}
+if(type==="combat"){
+bg.src="combat.png";
+enemyImg.src="enemy.png";
+enemyImg.style.display="block";
+}
+if(type==="boss"){
+bg.src="bossroom.png";
+enemyImg.src="boss.png";
+enemyImg.style.display="block";
+}
+}
+
+function log(msg){
+const d=document.createElement("div");
+d.innerHTML=msg;
+logDiv.appendChild(d);
+logDiv.scrollTop=logDiv.scrollHeight;
+}
+
+function updateUI(){
+hp.innerText=Math.max(0,game.player.hp);
+atk.innerText=game.player.atk;
+def.innerText=game.player.def;
+room.innerText=`${game.room}/${game.maxRooms}`;
+}
+
+function clear(){actions.innerHTML="";}
+
+function btn(text,fn){
+const b=document.createElement("button");
+b.innerText=text;
+b.onclick=fn;
+actions.appendChild(b);
+}
+
+function roll(){return Math.floor(Math.random()*6)+1;}
+
+function render(){
+clear();
+
+if(game.state==="CREATION"){
+setScene("room");
+log("Choose your trait:");
+btn("Strong (+5 ATK)",()=>{game.player.atk+=5;nextRoom();});
+btn("Tough (+20 HP)",()=>{game.player.hp+=20;nextRoom();});
+btn("Defensive (+5 DEF)",()=>{game.player.def+=5;nextRoom();});
+}
+
+else if(game.state==="PATH"){
+setScene("room");
+log("Choose your path:");
+btn("⬅ Left",()=>enterRoom());
+btn("➡ Right",()=>enterRoom());
+btn("⬆ Forward",()=>enterRoom());
+}
+
+else if(game.state==="COMBAT"){
+setScene(game.isBoss?"boss":"combat");
+btn("Punch",()=>combatTurn("Punch"));
+btn("Counter",()=>combatTurn("Counter"));
+btn("Quick Attack",()=>combatTurn("Quick Attack"));
+}
+
+else if(game.state==="GAMEOVER"){
+setScene("room");
+btn("Restart",reset);
+}
+
+else if(game.state==="WIN"){
+setScene("room");
+btn("Play Again",reset);
+}
+}
+
+function nextRoom(){
+game.room++;
+if(game.room>game.maxRooms){
+startBoss();
+return;
+}
+game.state="PATH";
+render();
+}
+
+function enterRoom(){
+const r=roll();
+
+if(r===1){
+log("[Room] Empty room.");
+nextRoom();
+}
+else if(r===2){
+log("[Room] Trap! Roll >=4 to avoid");
+if(roll()<4){
+game.player.hp-=10;
+log("Trap hit! -10 HP");
+}
+else log("Dodged!");
+updateUI();
+nextRoom();
+}
+else if(r===3){
+log("[Room] Monster appears!");
+startCombat(false);
+}
+else if(r===4){
+log("[Room] Wall! Roll >=4 to break");
+if(roll()<4){
+log("Dead end!");
+render();
+return;
+}
+else{
+log("Wall broken!");
+nextRoom();
+}
+}
+else if(r===5){
+log("[Room] Potion! +15 HP");
+game.player.hp+=15;
+updateUI();
+nextRoom();
+}
+else if(r===6){
+loot();
+nextRoom();
+}
+}
+
+function startCombat(isBoss){
+game.isBoss=isBoss;
+game.enemy=isBoss?
+{hp:100,atk:25,def:5}:
+{hp:35,atk:10,def:3};
+
+game.state="COMBAT";
+log(isBoss?"🔥 BOSS FIGHT 🔥":"Battle starts!");
+render();
+}
+
+function startBoss(){
+log("⚠ FINAL BOSS ⚠");
+startCombat(true);
+}
+
+function combatTurn(playerMove){
+const moves=["Punch","Counter","Quick Attack"];
+const enemyMove=moves[Math.floor(Math.random()*3)];
+
+log(`You: ${playerMove} | Enemy: ${enemyMove}`);
+
+let pMod=0.5,eMod=0.5,outcome="TIE";
+
+if(
+(playerMove==="Punch"&&enemyMove==="Counter")||
+(playerMove==="Counter"&&enemyMove==="Quick Attack")||
+(playerMove==="Quick Attack"&&enemyMove==="Punch")
+){
+pMod=1.0;eMod=0.25;outcome="WIN";
+}
+else if(
+(enemyMove==="Punch"&&playerMove==="Counter")||
+(enemyMove==="Counter"&&playerMove==="Quick Attack")||
+(enemyMove==="Quick Attack"&&playerMove==="Punch")
+){
+pMod=0.5;eMod=1.0;outcome="LOSE";
+}
+
+log("Outcome: "+outcome);
+
+let baseP=Math.max(1,game.player.atk-game.enemy.def+rand(-2,2));
+let baseE=Math.max(1,game.enemy.atk-game.player.def+rand(-2,2));
+
+let dmgP=Math.max(1,Math.floor(baseP*pMod));
+let dmgE=Math.max(1,Math.floor(baseE*eMod));
+
+game.enemy.hp-=dmgP;
+log(`You deal ${dmgP} (Enemy HP: ${Math.max(0,game.enemy.hp)})`);
+
+if(game.enemy.hp<=0){
+if(game.isBoss){
+log("🏆 YOU WIN!");
+game.state="WIN";
+render();
+return;
+}
+log("Enemy defeated!");
+nextRoom();
+return;
+}
+
+game.player.hp-=dmgE;
+log(`Enemy deals ${dmgE} (HP: ${Math.max(0,game.player.hp)})`);
+
+updateUI();
+
+if(game.player.hp<=0){
+log("GAME OVER");
+game.state="GAMEOVER";
+render();
+}
+}
+
+function rand(min,max){
+return Math.floor(Math.random()*(max-min+1))+min;
+}
+
+function loot(){
+const items=["Iron Sword","Steel Shield","Elixir"];
+const item=items[Math.floor(Math.random()*items.length)];
+
+log("[Room] Found "+item);
+game.player.inventory.push(item);
+
+if(item==="Iron Sword"){game.player.atk+=3;log("+3 ATK");}
+if(item==="Steel Shield"){game.player.def+=2;log("+2 DEF");}
+if(item==="Elixir"){game.player.hp+=30;log("+30 HP");}
+
+updateUI();
+}
+
+function reset(){
+game.player={hp:100,atk:10,def:5,inventory:[]};
+game.room=0;
+game.state="CREATION";
+logDiv.innerHTML="";
+updateUI();
+render();
+}
+
+updateUI();
+render();
+
+</script>
+
+</body>
+</html>
