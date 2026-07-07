@@ -18,16 +18,18 @@ width:900px;
 margin:auto;
 }
 
+/* SCENE */
 #scene{
 position:relative;
 margin:20px auto;
 width:800px;
 height:300px;
-background:url("doors.png") center/cover no-repeat;
+background:url("room.png") center/cover no-repeat, #222;
 border-radius:10px;
 overflow:hidden;
 }
 
+/* SPRITES */
 #playerSprite{
 position:absolute;
 left:50px;
@@ -42,30 +44,12 @@ bottom:20px;
 width:120px;
 }
 
-#log{
-height:200px;
-background:#000;
-overflow-y:auto;
-text-align:left;
-padding:10px;
-margin-top:10px;
-}
-
-button{
-padding:10px;
-margin:5px;
-width:150px;
-background:#333;
-color:white;
-border:none;
-cursor:pointer;
-}
-
+/* HP BARS */
 .hpBar{
 position:absolute;
 top:10px;
 width:200px;
-height:15px;
+height:18px;
 background:#444;
 border-radius:10px;
 overflow:hidden;
@@ -77,6 +61,65 @@ overflow:hidden;
 .hpFill{
 height:100%;
 background:lime;
+}
+
+.hpBar span{
+position:absolute;
+width:100%;
+text-align:center;
+font-size:12px;
+top:0;
+}
+
+/* LOG */
+#log{
+height:200px;
+background:#000;
+overflow-y:auto;
+text-align:left;
+padding:10px;
+margin-top:10px;
+}
+
+/* BUTTONS */
+button{
+padding:10px;
+margin:5px;
+width:150px;
+background:#333;
+color:white;
+border:none;
+cursor:pointer;
+}
+
+/* FLOATING DAMAGE */
+.damage{
+position:absolute;
+font-weight:bold;
+animation:floatUp 1s forwards;
+pointer-events:none;
+}
+
+@keyframes floatUp{
+0%{opacity:1;transform:translateY(0);}
+100%{opacity:0;transform:translateY(-40px);}
+}
+
+/* CRIT FLASH */
+.critFlash{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(255,255,255,0.4);
+animation:flash 0.2s;
+pointer-events:none;
+}
+
+@keyframes flash{
+0%{opacity:1;}
+100%{opacity:0;}
 }
 </style>
 </head>
@@ -90,12 +133,20 @@ background:lime;
 HP: <span id="hp">100</span> |
 ATK: <span id="atk">10</span> |
 DEF: <span id="def">5</span> |
-Room: <span id="room">0/8</span>
+Room: <span id="room">0/8</span> |
+CRIT: <span id="crit">10%</span>
 </div>
 
 <div id="scene">
-<div id="playerBar" class="hpBar"><div id="playerHP" class="hpFill"></div></div>
-<div id="enemyBar" class="hpBar"><div id="enemyHP" class="hpFill"></div></div>
+<div id="playerBar" class="hpBar">
+<div id="playerHP" class="hpFill"></div>
+<span id="playerHPText"></span>
+</div>
+
+<div id="enemyBar" class="hpBar">
+<div id="enemyHP" class="hpFill"></div>
+<span id="enemyHPText"></span>
+</div>
 
 <img id="playerSprite" src="player.png">
 <img id="enemySprite">
@@ -103,12 +154,11 @@ Room: <span id="room">0/8</span>
 
 <div id="log"></div>
 <div id="actions"></div>
-
 </div>
 
 <script>
 const game={
-player:{hp:100,atk:10,def:5},
+player:{hp:100,atk:10,def:5,crit:0.1},
 enemy:null,
 room:0,
 maxRooms:8,
@@ -126,18 +176,47 @@ logDiv.appendChild(d);
 logDiv.scrollTop=logDiv.scrollHeight;
 }
 
+/* FLOAT DAMAGE */
+function showDamage(x,y,text,color){
+const d=document.createElement("div");
+d.className="damage";
+d.style.left=x+"px";
+d.style.top=y+"px";
+d.style.color=color;
+d.innerText=text;
+document.getElementById("scene").appendChild(d);
+setTimeout(()=>d.remove(),1000);
+}
+
+/* CRIT FLASH */
+function flash(){
+const f=document.createElement("div");
+f.className="critFlash";
+document.getElementById("scene").appendChild(f);
+setTimeout(()=>f.remove(),200);
+}
+
 function updateUI(){
 hp.innerText=Math.max(0,game.player.hp);
 atk.innerText=game.player.atk;
 def.innerText=game.player.def;
 room.innerText=`${game.room}/${game.maxRooms}`;
+crit.innerText=Math.floor(game.player.crit*100)+"%";
 
-document.getElementById("playerHP").style.width=(game.player.hp)+"%";
+/* PLAYER HP */
+let playerPercent=(game.player.hp/100)*100;
+playerHP.style.width=playerPercent+"%";
+playerHPText.innerText=`${game.player.hp}/100`;
 
+/* ENEMY HP */
 if(game.enemy){
-document.getElementById("enemyHP").style.width=(game.enemy.hp)+"%";
+let max=game.isBoss?100:40;
+let percent=(game.enemy.hp/max)*100;
+enemyHP.style.width=percent+"%";
+enemyHPText.innerText=`${game.enemy.hp}/${max}`;
 }else{
-document.getElementById("enemyHP").style.width="0%";
+enemyHP.style.width="0%";
+enemyHPText.innerText="";
 }
 }
 
@@ -185,7 +264,7 @@ btn("Play Again",reset);
 }
 
 function nextRoom(){
-if(game.room >= game.maxRooms){
+if(game.room>=game.maxRooms){
 startBoss();
 return;
 }
@@ -198,7 +277,7 @@ updateUI();
 function enterRoom(){
 const r=roll();
 
-if(r<=3){ // 50% enemy
+if(r<=3){
 log("[Room] Enemy!");
 startCombat(false);
 }
@@ -212,7 +291,7 @@ game.player.hp+=15;
 updateUI();
 nextRoom();
 }
-else if(r===6){
+else{
 loot();
 nextRoom();
 }
@@ -225,17 +304,12 @@ game.enemy=isBoss?
 {hp:100,atk:25,def:5}:
 {hp:40,atk:10,def:3};
 
-document.getElementById("enemySprite").src=isBoss?"boss.png":"enemy.png";
+enemySprite.src=isBoss?"boss.png":"enemy.png";
 
 game.state="COMBAT";
 log(isBoss?"🔥 BOSS FIGHT 🔥":"Battle starts!");
 updateUI();
 render();
-}
-
-function startBoss(){
-log("⚠ FINAL BOSS ⚠");
-startCombat(true);
 }
 
 function combatTurn(playerMove){
@@ -244,48 +318,52 @@ const enemyMove=moves[Math.floor(Math.random()*3)];
 
 log(`You: ${playerMove} | Enemy: ${enemyMove}`);
 
-let pMod=0.5,eMod=0.5,outcome="TIE";
+let pMod=0.5,eMod=0.5;
 
 if(
 (playerMove==="Punch"&&enemyMove==="Counter")||
 (playerMove==="Counter"&&enemyMove==="Quick Attack")||
 (playerMove==="Quick Attack"&&enemyMove==="Punch")
 ){
-pMod=1.0;eMod=0.25;outcome="WIN";
+pMod=1.0;eMod=0.25;
 }
 else if(
 (enemyMove==="Punch"&&playerMove==="Counter")||
 (enemyMove==="Counter"&&playerMove==="Quick Attack")||
 (enemyMove==="Quick Attack"&&playerMove==="Punch")
 ){
-pMod=0.5;eMod=1.0;outcome="LOSE";
+pMod=0.5;eMod=1.0;
 }
 
-log("Outcome: "+outcome);
-
+/* PLAYER DAMAGE */
 let baseP=Math.max(1,game.player.atk-game.enemy.def+rand(-2,2));
-let baseE=Math.max(1,game.enemy.atk-game.player.def+rand(-2,2));
-
 let dmgP=Math.floor(baseP*pMod);
+
+/* CRIT */
+let isCrit=Math.random()<game.player.crit;
+if(isCrit){
+dmgP=Math.floor(dmgP*2);
+flash();
+}
+
+/* ENEMY DAMAGE */
+let baseE=Math.max(1,game.enemy.atk-game.player.def+rand(-2,2));
 let dmgE=Math.floor(baseE*eMod);
 
+/* APPLY */
 game.enemy.hp-=dmgP;
+showDamage(600,150,(isCrit?"CRIT ":"")+dmgP,isCrit?"yellow":"red");
 log(`You deal ${dmgP}`);
 
 if(game.enemy.hp<=0){
-if(game.isBoss){
-log("🏆 YOU WIN!");
-game.state="WIN";
-render();
-return;
-}
 log("Enemy defeated!");
-document.getElementById("enemySprite").src="";
+enemySprite.src="";
 nextRoom();
 return;
 }
 
 game.player.hp-=dmgE;
+showDamage(150,150,dmgE,"white");
 log(`Enemy deals ${dmgE}`);
 
 updateUI();
@@ -302,24 +380,25 @@ return Math.floor(Math.random()*(max-min+1))+min;
 }
 
 function loot(){
-const items=["Sword","Shield","Elixir"];
+const items=["Sword","Shield","Elixir","Dagger"];
 const item=items[Math.floor(Math.random()*items.length)];
 
 log("[Loot] "+item);
 
-if(item==="Sword"){game.player.atk+=3;}
-if(item==="Shield"){game.player.def+=2;}
-if(item==="Elixir"){game.player.hp+=25;}
+if(item==="Sword") game.player.atk+=3;
+if(item==="Shield") game.player.def+=2;
+if(item==="Elixir") game.player.hp+=25;
+if(item==="Dagger") game.player.crit+=0.1;
 
 updateUI();
 }
 
 function reset(){
-game.player={hp:100,atk:10,def:5};
+game.player={hp:100,atk:10,def:5,crit:0.1};
 game.room=0;
 game.state="CREATION";
 logDiv.innerHTML="";
-document.getElementById("enemySprite").src="";
+enemySprite.src="";
 updateUI();
 render();
 }
