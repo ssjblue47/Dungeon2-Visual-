@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -16,9 +15,32 @@ body{background:#121212;color:#fff;font-family:monospace;display:flex;justify-co
 #bg{position:absolute;width:100%;height:100%;object-fit:cover;opacity:0.4}
 
 .char{position:absolute;bottom:0;height:180px}
-
 #playerImg{left:10px}
 #enemyImg{right:10px}
+
+/* HP BARS */
+.hpBar{
+position:absolute;
+bottom:200px;
+left:10px;
+width:120px;
+height:12px;
+background:#444;
+border-radius:5px;
+overflow:hidden;
+}
+
+#enemyBar{
+right:10px;
+left:auto;
+}
+
+.hpBar div{
+height:100%;
+background:#4caf50;
+width:100%;
+transition:0.3s;
+}
 
 #log{height:200px;background:#000;padding:10px;overflow-y:auto;margin:10px 0}
 button{width:100%;padding:10px;margin:5px 0;background:#333;color:#fff;border:none;cursor:pointer}
@@ -42,9 +64,22 @@ Room: <span id="room">0/8</span>
 </div>
 
 <div id="scene">
+
 <img id="bg" src="room.png">
+
 <img id="playerImg" class="char" src="player.png">
 <img id="enemyImg" class="char" src="Enemy.png" style="display:none;">
+
+<!-- PLAYER HP -->
+<div id="playerBar" class="hpBar">
+<div id="playerHP"></div>
+</div>
+
+<!-- ENEMY HP -->
+<div id="enemyBar" class="hpBar" style="display:none;">
+<div id="enemyHP"></div>
+</div>
+
 </div>
 
 <div id="log"></div>
@@ -55,7 +90,7 @@ Room: <span id="room">0/8</span>
 <script>
 
 const game={
-player:{hp:100,atk:10,def:5,inventory:[]},
+player:{hp:100,maxHp:100,atk:10,def:5,inventory:[]},
 enemy:null,
 room:0,
 maxRooms:8,
@@ -69,21 +104,28 @@ const actions=document.getElementById("actions");
 const bg=document.getElementById("bg");
 const playerImg=document.getElementById("playerImg");
 const enemyImg=document.getElementById("enemyImg");
+const enemyBar=document.getElementById("enemyBar");
 
 function setScene(type){
+
 if(type==="room"){
 bg.src="room.png";
 enemyImg.style.display="none";
+enemyBar.style.display="none";
 }
+
 if(type==="combat"){
 bg.src="combat.png";
 enemyImg.src="Enemy.png";
 enemyImg.style.display="block";
+enemyBar.style.display="block";
 }
+
 if(type==="boss"){
 bg.src="bossroom.png";
 enemyImg.src="Boss.png";
 enemyImg.style.display="block";
+enemyBar.style.display="block";
 }
 }
 
@@ -99,6 +141,14 @@ hp.innerText=Math.max(0,game.player.hp);
 atk.innerText=game.player.atk;
 def.innerText=game.player.def;
 room.innerText=`${game.room}/${game.maxRooms}`;
+
+document.getElementById("playerHP").style.width =
+(game.player.hp / game.player.maxHp * 100) + "%";
+
+if(game.enemy){
+document.getElementById("enemyHP").style.width =
+(game.enemy.hp / game.enemy.maxHp * 100) + "%";
+}
 }
 
 function clear(){actions.innerHTML="";}
@@ -119,7 +169,7 @@ if(game.state==="CREATION"){
 setScene("room");
 log("Choose your trait:");
 btn("Strong (+5 ATK)",()=>{game.player.atk+=5;nextRoom();});
-btn("Tough (+20 HP)",()=>{game.player.hp+=20;nextRoom();});
+btn("Tough (+20 HP)",()=>{game.player.hp+=20;game.player.maxHp+=20;nextRoom();});
 btn("Defensive (+5 DEF)",()=>{game.player.def+=5;nextRoom();});
 }
 
@@ -207,11 +257,12 @@ nextRoom();
 function startCombat(isBoss){
 game.isBoss=isBoss;
 game.enemy=isBoss?
-{hp:100,atk:25,def:5}:
-{hp:35,atk:10,def:3};
+{hp:100,maxHp:100,atk:25,def:5}:
+{hp:35,maxHp:35,atk:10,def:3};
 
 game.state="COMBAT";
 log(isBoss?"🔥 BOSS FIGHT 🔥":"Battle starts!");
+updateUI();
 render();
 }
 
@@ -297,7 +348,7 @@ updateUI();
 }
 
 function reset(){
-game.player={hp:100,atk:10,def:5,inventory:[]};
+game.player={hp:100,maxHp:100,atk:10,def:5,inventory:[]};
 game.room=0;
 game.state="CREATION";
 logDiv.innerHTML="";
