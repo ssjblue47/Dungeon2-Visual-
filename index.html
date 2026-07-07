@@ -58,7 +58,8 @@ background:lime;
 .hpBar span{
 position:absolute;
 width:100%;
-text-align:center;
+text-align:left;
+padding-left:8px; /* ✅ shift right */
 font-size:12px;
 top:0;
 }
@@ -247,11 +248,13 @@ btn("Quick Attack",()=>combatTurn("Quick Attack"));
 }
 
 else if(game.state==="GAMEOVER"){
-btn("Restart",reset);
+log("💀 GAME OVER - Click below to restart");
+btn("🔄 Restart Run",reset);
 }
 
 else if(game.state==="WIN"){
-btn("Play Again",reset);
+log("🏆 YOU WON - Play again?");
+btn("🔄 Play Again",reset);
 }
 }
 
