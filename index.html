@@ -225,17 +225,14 @@ b.onclick=fn;
 actions.appendChild(b);
 }
 
-<!-- ONLY CHANGES ARE INSIDE JS -->
-<script>
-...
 function render(){
 clear();
 
 if(game.state==="CREATION"){
 log("Choose your trait:");
-btn("Strong",()=>{game.player.atk+=5;game.state="PATH";render();});
-btn("Tough",()=>{game.player.hp+=20;game.state="PATH";render();});
-btn("Defensive",()=>{game.player.def+=5;game.state="PATH";render();});
+btn("Strong: atk +5",()=>{game.player.atk+=5;game.state="PATH";render();});
+btn("Tough: hp +20 ",()=>{game.player.hp+=20;game.state="PATH";render();});
+btn("Defensive: def +5",()=>{game.player.def+=5;game.state="PATH";render();});
 }
 
 else if(game.state==="PATH"){
