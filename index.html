@@ -1,50 +1,65 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Tactical Dungeon Crawler</title>
+<title>Dungeon Crawler</title>
 
 <style>
-body{background:#121212;color:#fff;font-family:monospace;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
-#game{width:600px;background:#1e1e1e;padding:20px;border-radius:10px}
+body{
+background:#111;
+color:white;
+font-family:monospace;
+text-align:center;
+}
 
-#scene{position:relative;height:220px;background:#000;margin:10px 0;border-radius:10px;overflow:hidden}
+#scene{
+position:relative;
+width:800px;
+height:300px;
+margin:auto;
+background:url("room.png") center/cover;
+border-radius:10px;
+overflow:hidden;
+}
 
-#bg{position:absolute;width:100%;height:100%;object-fit:cover;opacity:0.4}
+img{
+position:absolute;
+bottom:20px;
+height:180px;
+}
 
-.char{position:absolute;bottom:0;height:180px}
-#playerImg{left:10px}
-#enemyImg{right:10px}
+#playerImg{ left:50px; }
+#enemyImg{ right:50px; }
 
 .hpBar{
 position:absolute;
-bottom:200px;
-left:10px;
-width:120px;
-height:12px;
-background:#444;
-border-radius:5px;
-overflow:hidden;
+top:10px;
+width:200px;
+height:15px;
+background:#333;
+border-radius:10px;
 }
-#enemyBar{right:10px;left:auto}
 
-.hpBar div{
+#playerBar{ left:10px; }
+#enemyBar{ right:10px; }
+
+#playerHP,#enemyHP{
 height:100%;
-background:#4caf50;
-width:100%;
-transition:0.3s;
+background:lime;
+border-radius:10px;
 }
 
-@keyframes shake{
-0%{transform:translateX(0)}
-25%{transform:translateX(-5px)}
-50%{transform:translateX(5px)}
-75%{transform:translateX(-5px)}
-100%{transform:translateX(0)}
+button{
+margin:5px;
+padding:10px;
+width:200px;
 }
-.hit{
-animation:shake 0.3s;
-filter:brightness(2);
+
+#log{
+height:200px;
+overflow:auto;
+background:black;
+text-align:left;
+padding:10px;
 }
 
 /* DAMAGE TEXT */
@@ -52,284 +67,255 @@ filter:brightness(2);
 position:absolute;
 font-weight:bold;
 font-size:18px;
-text-shadow:0 0 5px #000;
-animation:floatUp 0.8s ease-out forwards;
+text-shadow:0 0 5px black;
+animation:floatUp 0.8s forwards;
 pointer-events:none;
 }
 
 @keyframes floatUp{
-0%{opacity:1;transform:translateY(0)}
-100%{opacity:0;transform:translateY(-40px)}
+0%{opacity:1; transform:translateY(0);}
+100%{opacity:0; transform:translateY(-40px);}
 }
 
-#log{height:200px;background:#000;padding:10px;overflow-y:auto;margin:10px 0}
-button{width:100%;padding:10px;margin:5px 0;background:#333;color:#fff;border:none;cursor:pointer}
+/* CRIT FLASH */
+.flash{
+animation:flash 0.2s;
+}
+
+@keyframes flash{
+0%{filter:brightness(2);}
+100%{filter:brightness(1);}
+}
 </style>
 </head>
 
 <body>
 
-<div id="game">
 <h1>Dungeon Crawler</h1>
-
-<div>
-HP: <span id="hp">100</span> |
-ATK: <span id="atk">10</span> |
-DEF: <span id="def">5</span> |
-CRIT: <span id="crit">10</span>% |
-Room: <span id="room">0/8</span>
-</div>
+<div id="stats"></div>
 
 <div id="scene">
-<img id="bg" src="room.png">
-<img id="playerImg" class="char" src="player.png">
-<img id="enemyImg" class="char" src="Enemy.png" style="display:none;">
+<img id="playerImg" src="player.png">
+<img id="enemyImg">
 
 <div id="playerBar" class="hpBar"><div id="playerHP"></div></div>
-<div id="enemyBar" class="hpBar" style="display:none;"><div id="enemyHP"></div></div>
+<div id="enemyBar" class="hpBar"><div id="enemyHP"></div></div>
 </div>
 
 <div id="log"></div>
-<div id="actions"></div>
+
+<div id="buttons">
+<button onclick="attack()">Punch</button>
+<button onclick="quick()">Quick Attack</button>
+<button onclick="counter()">Counter</button>
+<button id="chestBtn" onclick="openChest()" style="display:none;">Open Chest</button>
+<button onclick="nextRoom()">Next Room</button>
 </div>
 
 <script>
+let player, enemy, room;
 
-const game={
-player:{hp:100,maxHp:100,atk:10,def:5,crit:10},
-enemy:null,
-room:0,
-maxRooms:8,
-state:"CREATION",
-isBoss:false
+function resetGame(){
+player = {
+hp:100,
+atk:10,
+def:5,
+crit:0.1,
+dodge:0.1,
+combo:0
 };
 
-const logDiv=document.getElementById("log");
-const actions=document.getElementById("actions");
-const bg=document.getElementById("bg");
-const playerImg=document.getElementById("playerImg");
-const enemyImg=document.getElementById("enemyImg");
-const enemyBar=document.getElementById("enemyBar");
+enemy=null;
+room=0;
 
-function hitEffect(target){
-target.classList.add("hit");
-setTimeout(()=>target.classList.remove("hit"),300);
+document.getElementById("enemyImg").src="";
+nextRoom();
 }
 
-/* UPDATED DAMAGE FUNCTION */
-function showDamage(target,text,type){
-const rect=target.getBoundingClientRect();
-const sceneRect=document.getElementById("scene").getBoundingClientRect();
+function log(t){
+document.getElementById("log").innerHTML += t+"<br>";
+}
+
+function updateStats(){
+document.getElementById("stats").innerText =
+`HP:${player.hp} ATK:${player.atk} DEF:${player.def} CRIT:${Math.round(player.crit*100)}% Room:${room}/8`;
+}
+
+function updateHP(){
+document.getElementById("playerHP").style.width = player.hp+"%";
+if(enemy)
+document.getElementById("enemyHP").style.width = enemy.hp+"%";
+}
+
+function showDamage(target,text,color="red"){
+const rect = target.getBoundingClientRect();
+const sceneRect = scene.getBoundingClientRect();
 
 const d=document.createElement("div");
 d.className="dmg";
-
-d.style.left=(rect.left-sceneRect.left+rect.width/2)+"px";
+d.style.left=(rect.left-sceneRect.left+50)+"px";
 d.style.top=(rect.top-sceneRect.top)+"px";
-
-if(type==="heal") d.style.color="#4caf50";
-else if(type==="crit") d.style.color="#ffd700";
-else d.style.color="#ff4d4d";
-
+d.style.color=color;
 d.innerText=text;
 
-document.getElementById("scene").appendChild(d);
+scene.appendChild(d);
 setTimeout(()=>d.remove(),800);
 }
 
-function setScene(type){
-if(type==="room"){bg.src="room.png";enemyImg.style.display="none";enemyBar.style.display="none";}
-if(type==="combat"){bg.src="combat.png";enemyImg.style.display="block";enemyBar.style.display="block";}
-if(type==="boss"){bg.src="bossroom.png";enemyImg.src="Boss.png";enemyImg.style.display="block";enemyBar.style.display="block";}
+function spawnEnemy(type){
+const img=document.getElementById("enemyImg");
+
+if(type==="boss"){
+img.src="boss.png";
+scene.style.background="url(bossroom.png) center/cover";
+enemy={hp:150,atk:15,def:6,dodge:0.005,type:"boss"};
+}else{
+img.src="enemy.png";
+scene.style.background="url(combat.png) center/cover";
+enemy={hp:60,atk:8,def:3,dodge:0.05,type:"normal"};
 }
-
-function log(msg){
-const d=document.createElement("div");
-d.innerHTML=msg;
-logDiv.appendChild(d);
-logDiv.scrollTop=logDiv.scrollHeight;
-}
-
-function updateUI(){
-hp.innerText=Math.max(0,game.player.hp);
-atk.innerText=game.player.atk;
-def.innerText=game.player.def;
-crit.innerText=game.player.crit;
-room.innerText=`${game.room}/${game.maxRooms}`;
-
-document.getElementById("playerHP").style.width=(game.player.hp/game.player.maxHp*100)+"%";
-
-if(game.enemy){
-document.getElementById("enemyHP").style.width=(game.enemy.hp/game.enemy.maxHp*100)+"%";
-}
-}
-
-function clear(){actions.innerHTML="";}
-
-function btn(text,fn){
-const b=document.createElement("button");
-b.innerText=text;
-b.onclick=fn;
-actions.appendChild(b);
-}
-
-function roll(){return Math.floor(Math.random()*6)+1;}
-
-function render(){
-clear();
-
-if(game.state==="CREATION"){
-setScene("room");
-log("Choose your trait:");
-btn("Strong (+5 ATK)",()=>{game.player.atk+=5;nextRoom();});
-btn("Tough (+20 HP)",()=>{game.player.hp+=20;game.player.maxHp+=20;nextRoom();});
-btn("Defensive (+5 DEF)",()=>{game.player.def+=5;nextRoom();});
-}
-
-else if(game.state==="PATH"){
-setScene("room");
-log("Choose your path:");
-btn("⬅ Left",()=>enterRoom());
-btn("➡ Right",()=>enterRoom());
-btn("⬆ Forward",()=>enterRoom());
-}
-
-else if(game.state==="COMBAT"){
-setScene(game.isBoss?"boss":"combat");
-btn("Punch",()=>combatTurn("Punch"));
-btn("Counter",()=>combatTurn("Counter"));
-btn("Quick Attack",()=>combatTurn("Quick Attack"));
-}
-
-else if(game.state==="GAMEOVER"){btn("Restart",reset);}
-else if(game.state==="WIN"){btn("Play Again",reset);}
 }
 
 function nextRoom(){
-game.room++;
-if(game.room>game.maxRooms){startBoss();return;}
-game.state="PATH";
-render();
+room++;
+document.getElementById("chestBtn").style.display="none";
+
+if(room===8){
+spawnEnemy("boss");
+log("Boss appears!");
+}
+else{
+let roll=Math.random();
+
+if(roll<0.5){
+spawnEnemy("normal");
+log("Enemy!");
+}
+else if(roll<0.8){
+enemy=null;
+document.getElementById("enemyImg").src="chest.png";
+scene.style.background="url(room.png) center/cover";
+document.getElementById("chestBtn").style.display="inline";
+log("Chest found!");
+}
+else{
+enemy=null;
+document.getElementById("enemyImg").src="";
+scene.style.background="url(room.png) center/cover";
+log("Empty room.");
+}
 }
 
-function enterRoom(){
-const r=roll();
-
-if(r===1){log("Empty room.");nextRoom();}
-else if(r===2){
-log("Trap!");
-if(roll()<4){
-game.player.hp-=10;
-hitEffect(playerImg);
-showDamage(playerImg,"-10","dmg");
-}
-updateUI();nextRoom();
-}
-else if(r===3){startCombat(false);}
-else if(r===4){
-log("Wall!");
-if(roll()<4){render();return;}
-else nextRoom();
-}
-else if(r===5){
-game.player.hp+=15;
-showDamage(playerImg,"+15","heal");
-updateUI();
-nextRoom();
-}
-else if(r===6){loot();nextRoom();}
+updateStats();
+updateHP();
 }
 
-function startCombat(isBoss){
-game.isBoss=isBoss;
-game.enemy=isBoss?
-{hp:100,maxHp:100,atk:25,def:5}:
-{hp:35,maxHp:35,atk:10,def:3};
+function openChest(){
+document.getElementById("chestBtn").style.display="none";
 
-game.state="COMBAT";
-updateUI();
-render();
+let r=Math.random();
+
+if(r<0.33){
+player.atk+=5;
+log("Found sword! +ATK");
+}
+else if(r<0.66){
+player.crit+=0.1;
+log("Found dagger! +CRIT");
+}
+else{
+player.hp+=20;
+showDamage(playerImg,"+20","lime");
+log("Potion!");
 }
 
-function startBoss(){startCombat(true);}
-
-function combatTurn(playerMove){
-const moves=["Punch","Counter","Quick Attack"];
-const enemyMove=moves[Math.floor(Math.random()*3)];
-
-let pMod=0.5,eMod=0.5;
-
-if((playerMove==="Punch"&&enemyMove==="Counter")||(playerMove==="Counter"&&enemyMove==="Quick Attack")||(playerMove==="Quick Attack"&&enemyMove==="Punch")){
-pMod=1.0;eMod=0.25;
-}
-else if((enemyMove==="Punch"&&playerMove==="Counter")||(enemyMove==="Counter"&&playerMove==="Quick Attack")||(enemyMove==="Quick Attack"&&playerMove==="Punch")){
-pMod=0.5;eMod=1.0;
+document.getElementById("enemyImg").src="";
+updateStats();
 }
 
-/* CRIT SYSTEM */
+function calcHit(attacker,defender){
+if(Math.random()<defender.dodge){
+return {miss:true};
+}
+
+let dmg = attacker.atk - defender.def;
+if(dmg<1) dmg=1;
+
 let crit=false;
-if(Math.random()*100<game.player.crit){
-pMod*=2;
+
+if(attacker===player && Math.random()<player.crit){
+dmg*=2;
 crit=true;
+enemyImg.classList.add("flash");
+setTimeout(()=>enemyImg.classList.remove("flash"),200);
 }
 
-let dmgP=Math.max(1,Math.floor((game.player.atk-game.enemy.def+rand(-2,2))*pMod));
-let dmgE=Math.max(1,Math.floor((game.enemy.atk-game.player.def+rand(-2,2))*eMod));
-
-game.enemy.hp-=dmgP;
-hitEffect(enemyImg);
-showDamage(enemyImg,"-"+dmgP,crit?"crit":"dmg");
-
-if(game.enemy.hp<=0){
-if(game.isBoss){game.state="WIN";render();return;}
-nextRoom();return;
+return {dmg,crit};
 }
 
-game.player.hp-=dmgE;
-hitEffect(playerImg);
-showDamage(playerImg,"-"+dmgE,"dmg");
+function attack(){
+if(!enemy) return;
 
-updateUI();
+let p = calcHit(player,enemy);
 
-if(game.player.hp<=0){
-game.state="GAMEOVER";
-render();
-}
-}
-
-function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
-
-function loot(){
-const items=["Iron Sword","Steel Shield","Elixir","Dagger"];
-const item=items[Math.floor(Math.random()*items.length)];
-
-log("Found: "+item);
-
-if(item==="Iron Sword"){game.player.atk+=3;}
-if(item==="Steel Shield"){game.player.def+=2;}
-if(item==="Elixir"){
-game.player.hp+=30;
-showDamage(playerImg,"+30","heal");
-}
-if(item==="Dagger"){
-game.player.crit+=10;
+if(p.miss){
+showDamage(enemyImg,"MISS","gray");
+}else{
+enemy.hp-=p.dmg;
+showDamage(enemyImg,"-"+p.dmg, p.crit?"yellow":"red");
 }
 
-updateUI();
+let e = calcHit(enemy,player);
+
+if(e.miss){
+showDamage(playerImg,"MISS","gray");
+}else{
+player.hp-=e.dmg;
+showDamage(playerImg,"-"+e.dmg,"red");
 }
 
-function reset(){
-game.player={hp:100,maxHp:100,atk:10,def:5,crit:10};
-game.room=0;
-game.state="CREATION";
-logDiv.innerHTML="";
-updateUI();
-render();
+checkFight();
 }
 
-updateUI();
-render();
+function quick(){
+player.atk+=3;
+attack();
+player.atk-=3;
+}
 
+function counter(){
+player.def+=5;
+attack();
+player.def-=5;
+}
+
+function checkFight(){
+if(enemy && enemy.hp<=0){
+log("Win!");
+player.combo++;
+
+if(player.combo>=2){
+log("COMBO STRIKE!");
+enemy=null;
+let bonus = Math.floor(player.atk*1.5);
+showDamage(enemyImg,"-"+bonus,"orange");
+player.combo=0;
+}
+
+enemy=null;
+document.getElementById("enemyImg").src="";
+}
+else if(player.hp<=0){
+log("You died. Restarting...");
+resetGame();
+}
+
+updateStats();
+updateHP();
+}
+
+resetGame();
 </script>
+
 </body>
 </html>
