@@ -8,8 +8,6 @@
 body{background:#121212;color:#fff;font-family:monospace;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
 #game{width:600px;background:#1e1e1e;padding:20px;border-radius:10px}
 
-#top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-
 #scene{position:relative;height:220px;background:#000;margin:10px 0;border-radius:10px;overflow:hidden}
 
 #bg{position:absolute;width:100%;height:100%;object-fit:cover;opacity:0.4}
@@ -30,10 +28,7 @@ border-radius:5px;
 overflow:hidden;
 }
 
-#enemyBar{
-right:10px;
-left:auto;
-}
+#enemyBar{right:10px;left:auto}
 
 .hpBar div{
 height:100%;
@@ -42,49 +37,62 @@ width:100%;
 transition:0.3s;
 }
 
+/* HIT ANIMATION */
+@keyframes shake{
+0%{transform:translateX(0)}
+25%{transform:translateX(-5px)}
+50%{transform:translateX(5px)}
+75%{transform:translateX(-5px)}
+100%{transform:translateX(0)}
+}
+
+.hit{
+animation:shake 0.3s;
+filter:brightness(2);
+}
+
+/* DAMAGE TEXT */
+.dmg{
+position:absolute;
+color:#ff4d4d;
+font-weight:bold;
+animation:floatUp 0.8s ease-out forwards;
+pointer-events:none;
+}
+
+@keyframes floatUp{
+0%{opacity:1;transform:translateY(0)}
+100%{opacity:0;transform:translateY(-40px)}
+}
+
 #log{height:200px;background:#000;padding:10px;overflow-y:auto;margin:10px 0}
 button{width:100%;padding:10px;margin:5px 0;background:#333;color:#fff;border:none;cursor:pointer}
 </style>
-
 </head>
 
 <body>
 
 <div id="game">
-
 <h1>Dungeon Crawler</h1>
 
-<div id="top">
 <div>
 HP: <span id="hp">100</span> |
 ATK: <span id="atk">10</span> |
 DEF: <span id="def">5</span> |
 Room: <span id="room">0/8</span>
 </div>
-</div>
 
 <div id="scene">
-
 <img id="bg" src="room.png">
-
 <img id="playerImg" class="char" src="player.png">
 <img id="enemyImg" class="char" src="Enemy.png" style="display:none;">
 
-<!-- PLAYER HP -->
-<div id="playerBar" class="hpBar">
-<div id="playerHP"></div>
-</div>
-
-<!-- ENEMY HP -->
-<div id="enemyBar" class="hpBar" style="display:none;">
-<div id="enemyHP"></div>
-</div>
-
+<div id="playerBar" class="hpBar"><div id="playerHP"></div></div>
+<div id="enemyBar" class="hpBar" style="display:none;"><div id="enemyHP"></div></div>
 </div>
 
 <div id="log"></div>
 <div id="actions"></div>
-
 </div>
 
 <script>
@@ -100,27 +108,38 @@ isBoss:false
 
 const logDiv=document.getElementById("log");
 const actions=document.getElementById("actions");
-
 const bg=document.getElementById("bg");
 const playerImg=document.getElementById("playerImg");
 const enemyImg=document.getElementById("enemyImg");
 const enemyBar=document.getElementById("enemyBar");
 
-function setScene(type){
+function hitEffect(target){
+target.classList.add("hit");
+setTimeout(()=>target.classList.remove("hit"),300);
+}
 
+function showDamage(x,y,text){
+const d=document.createElement("div");
+d.className="dmg";
+d.style.left=x+"px";
+d.style.top=y+"px";
+d.innerText=text;
+document.getElementById("scene").appendChild(d);
+setTimeout(()=>d.remove(),800);
+}
+
+function setScene(type){
 if(type==="room"){
 bg.src="room.png";
 enemyImg.style.display="none";
 enemyBar.style.display="none";
 }
-
 if(type==="combat"){
 bg.src="combat.png";
 enemyImg.src="Enemy.png";
 enemyImg.style.display="block";
 enemyBar.style.display="block";
 }
-
 if(type==="boss"){
 bg.src="bossroom.png";
 enemyImg.src="Boss.png";
@@ -143,11 +162,11 @@ def.innerText=game.player.def;
 room.innerText=`${game.room}/${game.maxRooms}`;
 
 document.getElementById("playerHP").style.width =
-(game.player.hp / game.player.maxHp * 100) + "%";
+(game.player.hp/game.player.maxHp*100)+"%";
 
 if(game.enemy){
 document.getElementById("enemyHP").style.width =
-(game.enemy.hp / game.enemy.maxHp * 100) + "%";
+(game.enemy.hp/game.enemy.maxHp*100)+"%";
 }
 }
 
@@ -201,10 +220,7 @@ btn("Play Again",reset);
 
 function nextRoom(){
 game.room++;
-if(game.room>game.maxRooms){
-startBoss();
-return;
-}
+if(game.room>game.maxRooms){startBoss();return;}
 game.state="PATH";
 render();
 }
@@ -212,46 +228,25 @@ render();
 function enterRoom(){
 const r=roll();
 
-if(r===1){
-log("[Room] Empty room.");
-nextRoom();
-}
+if(r===1){log("Empty room.");nextRoom();}
 else if(r===2){
-log("[Room] Trap! Roll >=4 to avoid");
-if(roll()<4){
-game.player.hp-=10;
-log("Trap hit! -10 HP");
+log("Trap!");
+if(roll()<4){game.player.hp-=10;hitEffect(playerImg);showDamage(80,120,"-10");}
+updateUI();nextRoom();
 }
-else log("Dodged!");
-updateUI();
-nextRoom();
-}
-else if(r===3){
-log("[Room] Monster appears!");
-startCombat(false);
-}
+else if(r===3){startCombat(false);}
 else if(r===4){
-log("[Room] Wall! Roll >=4 to break");
-if(roll()<4){
-log("Dead end!");
-render();
-return;
-}
-else{
-log("Wall broken!");
-nextRoom();
-}
+log("Wall!");
+if(roll()<4){render();return;}
+else nextRoom();
 }
 else if(r===5){
-log("[Room] Potion! +15 HP");
 game.player.hp+=15;
+showDamage(80,120,"+15");
 updateUI();
 nextRoom();
 }
-else if(r===6){
-loot();
-nextRoom();
-}
+else if(r===6){loot();nextRoom();}
 }
 
 function startCombat(isBoss){
@@ -261,88 +256,58 @@ game.enemy=isBoss?
 {hp:35,maxHp:35,atk:10,def:3};
 
 game.state="COMBAT";
-log(isBoss?"🔥 BOSS FIGHT 🔥":"Battle starts!");
 updateUI();
 render();
 }
 
-function startBoss(){
-log("⚠ FINAL BOSS ⚠");
-startCombat(true);
-}
+function startBoss(){startCombat(true);}
 
 function combatTurn(playerMove){
 const moves=["Punch","Counter","Quick Attack"];
 const enemyMove=moves[Math.floor(Math.random()*3)];
 
-log(`You: ${playerMove} | Enemy: ${enemyMove}`);
+let pMod=0.5,eMod=0.5;
 
-let pMod=0.5,eMod=0.5,outcome="TIE";
-
-if(
-(playerMove==="Punch"&&enemyMove==="Counter")||
-(playerMove==="Counter"&&enemyMove==="Quick Attack")||
-(playerMove==="Quick Attack"&&enemyMove==="Punch")
-){
-pMod=1.0;eMod=0.25;outcome="WIN";
+if((playerMove==="Punch"&&enemyMove==="Counter")||(playerMove==="Counter"&&enemyMove==="Quick Attack")||(playerMove==="Quick Attack"&&enemyMove==="Punch")){
+pMod=1.0;eMod=0.25;
 }
-else if(
-(enemyMove==="Punch"&&playerMove==="Counter")||
-(enemyMove==="Counter"&&playerMove==="Quick Attack")||
-(enemyMove==="Quick Attack"&&playerMove==="Punch")
-){
-pMod=0.5;eMod=1.0;outcome="LOSE";
+else if((enemyMove==="Punch"&&playerMove==="Counter")||(enemyMove==="Counter"&&playerMove==="Quick Attack")||(enemyMove==="Quick Attack"&&playerMove==="Punch")){
+pMod=0.5;eMod=1.0;
 }
 
-log("Outcome: "+outcome);
-
-let baseP=Math.max(1,game.player.atk-game.enemy.def+rand(-2,2));
-let baseE=Math.max(1,game.enemy.atk-game.player.def+rand(-2,2));
-
-let dmgP=Math.max(1,Math.floor(baseP*pMod));
-let dmgE=Math.max(1,Math.floor(baseE*eMod));
+let dmgP=Math.max(1,Math.floor((game.player.atk-game.enemy.def+rand(-2,2))*pMod));
+let dmgE=Math.max(1,Math.floor((game.enemy.atk-game.player.def+rand(-2,2))*eMod));
 
 game.enemy.hp-=dmgP;
-log(`You deal ${dmgP} (Enemy HP: ${Math.max(0,game.enemy.hp)})`);
+hitEffect(enemyImg);
+showDamage(450,120,"-"+dmgP);
 
 if(game.enemy.hp<=0){
-if(game.isBoss){
-log("🏆 YOU WIN!");
-game.state="WIN";
-render();
-return;
-}
-log("Enemy defeated!");
-nextRoom();
-return;
+if(game.isBoss){game.state="WIN";render();return;}
+nextRoom();return;
 }
 
 game.player.hp-=dmgE;
-log(`Enemy deals ${dmgE} (HP: ${Math.max(0,game.player.hp)})`);
+hitEffect(playerImg);
+showDamage(80,120,"-"+dmgE);
 
 updateUI();
 
 if(game.player.hp<=0){
-log("GAME OVER");
 game.state="GAMEOVER";
 render();
 }
 }
 
-function rand(min,max){
-return Math.floor(Math.random()*(max-min+1))+min;
-}
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
 
 function loot(){
 const items=["Iron Sword","Steel Shield","Elixir"];
 const item=items[Math.floor(Math.random()*items.length)];
 
-log("[Room] Found "+item);
-game.player.inventory.push(item);
-
-if(item==="Iron Sword"){game.player.atk+=3;log("+3 ATK");}
-if(item==="Steel Shield"){game.player.def+=2;log("+2 DEF");}
-if(item==="Elixir"){game.player.hp+=30;log("+30 HP");}
+if(item==="Iron Sword"){game.player.atk+=3;}
+if(item==="Steel Shield"){game.player.def+=2;}
+if(item==="Elixir"){game.player.hp+=30;showDamage(80,120,"+30");}
 
 updateUI();
 }
@@ -360,6 +325,5 @@ updateUI();
 render();
 
 </script>
-
 </body>
 </html>
