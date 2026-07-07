@@ -92,7 +92,7 @@ border:none;
 cursor:pointer;
 }
 
-/* FLOATING DAMAGE */
+/* FLOAT DAMAGE */
 .damage{
 position:absolute;
 font-weight:bold;
@@ -197,6 +197,8 @@ setTimeout(()=>f.remove(),200);
 }
 
 function updateUI(){
+game.player.hp=Math.min(game.player.hp,100);
+
 hp.innerText=Math.max(0,game.player.hp);
 atk.innerText=game.player.atk;
 def.innerText=game.player.def;
@@ -264,11 +266,13 @@ btn("Play Again",reset);
 }
 
 function nextRoom(){
-if(game.room>=game.maxRooms){
-startBoss();
+game.room++;
+
+if(game.room === game.maxRooms){
+startCombat(true);
 return;
 }
-game.room++;
+
 game.state="PATH";
 render();
 updateUI();
@@ -283,17 +287,20 @@ startCombat(false);
 }
 else if(r===4){
 log("[Room] Empty.");
-nextRoom();
+game.state="PATH";
+render();
 }
 else if(r===5){
 log("[Room] Potion +15 HP");
 game.player.hp+=15;
 updateUI();
-nextRoom();
+game.state="PATH";
+render();
 }
 else{
 loot();
-nextRoom();
+game.state="PATH";
+render();
 }
 }
 
@@ -313,6 +320,8 @@ render();
 }
 
 function combatTurn(playerMove){
+if(game.state!=="COMBAT" || !game.enemy) return;
+
 const moves=["Punch","Counter","Quick Attack"];
 const enemyMove=moves[Math.floor(Math.random()*3)];
 
@@ -353,12 +362,23 @@ let dmgE=Math.floor(baseE*eMod);
 /* APPLY */
 game.enemy.hp-=dmgP;
 showDamage(600,150,(isCrit?"CRIT ":"")+dmgP,isCrit?"yellow":"red");
-log(`You deal ${dmgP}`);
+log(`You deal ${dmgP}${isCrit?" CRIT":""}`);
 
 if(game.enemy.hp<=0){
 log("Enemy defeated!");
 enemySprite.src="";
-nextRoom();
+game.enemy=null;
+
+/* RETURN TO PATH instead of skipping */
+if(game.room >= game.maxRooms){
+game.state="WIN";
+log("🏆 YOU CLEARED THE DUNGEON!");
+}else{
+game.state="PATH";
+}
+
+updateUI();
+render();
 return;
 }
 
