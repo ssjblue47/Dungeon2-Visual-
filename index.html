@@ -13,11 +13,6 @@ text-align:center;
 margin:0;
 }
 
-#game{
-width:900px;
-margin:auto;
-}
-
 #scene{
 position:relative;
 margin:20px auto;
@@ -68,25 +63,6 @@ font-size:12px;
 top:0;
 }
 
-#log{
-height:200px;
-background:#000;
-overflow-y:auto;
-text-align:left;
-padding:10px;
-margin-top:10px;
-}
-
-button{
-padding:10px;
-margin:5px;
-width:150px;
-background:#333;
-color:white;
-border:none;
-cursor:pointer;
-}
-
 .damage{
 position:absolute;
 font-weight:bold;
@@ -114,21 +90,37 @@ pointer-events:none;
 0%{opacity:1;}
 100%{opacity:0;}
 }
+
+button{
+padding:10px;
+margin:5px;
+width:150px;
+background:#333;
+color:white;
+border:none;
+cursor:pointer;
+}
+
+#log{
+height:200px;
+background:#000;
+overflow-y:auto;
+text-align:left;
+padding:10px;
+margin-top:10px;
+}
 </style>
 </head>
 
 <body>
 
-<div id="game">
-<h1>Dungeon Crawler</h1>
-
-<div>
+<h2>
 HP: <span id="hp">100</span> |
 ATK: <span id="atk">10</span> |
 DEF: <span id="def">5</span> |
-Room: <span id="room">0/8</span> |
+Room: <span id="roomText">0/8</span> |
 CRIT: <span id="crit">10%</span>
-</div>
+</h2>
 
 <div id="scene">
 <div id="playerBar" class="hpBar">
@@ -145,11 +137,28 @@ CRIT: <span id="crit">10%</span>
 <img id="enemySprite">
 </div>
 
-<div id="log"></div>
 <div id="actions"></div>
-</div>
+<div id="log"></div>
 
 <script>
+const scene=document.getElementById("scene");
+const logDiv=document.getElementById("log");
+const actions=document.getElementById("actions");
+
+const hpEl=document.getElementById("hp");
+const atkEl=document.getElementById("atk");
+const defEl=document.getElementById("def");
+const roomEl=document.getElementById("roomText");
+const critEl=document.getElementById("crit");
+
+const playerHPBar=document.getElementById("playerHP");
+const enemyHPBar=document.getElementById("enemyHP");
+
+const playerHPText=document.getElementById("playerHPText");
+const enemyHPText=document.getElementById("enemyHPText");
+
+const enemySprite=document.getElementById("enemySprite");
+
 const game={
 player:{hp:100,atk:10,def:5,crit:0.1},
 enemy:null,
@@ -159,9 +168,6 @@ state:"CREATION",
 isBoss:false
 };
 
-const logDiv=document.getElementById("log");
-const actions=document.getElementById("actions");
-
 function log(msg){
 const d=document.createElement("div");
 d.innerHTML=msg;
@@ -169,7 +175,6 @@ logDiv.appendChild(d);
 logDiv.scrollTop=logDiv.scrollHeight;
 }
 
-/* FLOAT DAMAGE */
 function showDamage(x,y,text,color){
 const d=document.createElement("div");
 d.className="damage";
@@ -181,7 +186,6 @@ scene.appendChild(d);
 setTimeout(()=>d.remove(),1000);
 }
 
-/* CRIT FLASH */
 function flash(){
 const f=document.createElement("div");
 f.className="critFlash";
@@ -192,23 +196,21 @@ setTimeout(()=>f.remove(),200);
 function updateUI(){
 game.player.hp=Math.min(game.player.hp,100);
 
-hp.innerText=Math.max(0,game.player.hp);
-atk.innerText=game.player.atk;
-def.innerText=game.player.def;
-room.innerText=`${game.room}/${game.maxRooms}`;
-crit.innerText=Math.floor(game.player.crit*100)+"%";
+hpEl.innerText=Math.max(0,game.player.hp);
+atkEl.innerText=game.player.atk;
+defEl.innerText=game.player.def;
+roomEl.innerText=game.room + "/" + game.maxRooms;
+critEl.innerText=Math.floor(game.player.crit*100)+"%";
 
-let playerPercent=(game.player.hp/100)*100;
-playerHP.style.width=playerPercent+"%";
-playerHPText.innerText=`${game.player.hp}/100`;
+playerHPBar.style.width=(game.player.hp/100*100)+"%";
+playerHPText.innerText=game.player.hp+"/100";
 
 if(game.enemy){
 let max=game.isBoss?100:40;
-let percent=(game.enemy.hp/max)*100;
-enemyHP.style.width=percent+"%";
-enemyHPText.innerText=`${game.enemy.hp}/${max}`;
+enemyHPBar.style.width=(game.enemy.hp/max*100)+"%";
+enemyHPText.innerText=game.enemy.hp+"/"+max;
 }else{
-enemyHP.style.width="0%";
+enemyHPBar.style.width="0%";
 enemyHPText.innerText="";
 }
 }
@@ -222,20 +224,17 @@ b.onclick=fn;
 actions.appendChild(b);
 }
 
-function roll(){return Math.floor(Math.random()*6)+1;}
-
 function render(){
 clear();
 
 if(game.state==="CREATION"){
 log("Choose your trait:");
-btn("Strong (+5 ATK)",()=>{game.player.atk+=5;nextRoom();});
-btn("Tough (+20 HP)",()=>{game.player.hp+=20;nextRoom();});
-btn("Defensive (+5 DEF)",()=>{game.player.def+=5;nextRoom();});
+btn("Strong",()=>{game.player.atk+=5;game.state="PATH";render();});
+btn("Tough",()=>{game.player.hp+=20;game.state="PATH";render();});
+btn("Defensive",()=>{game.player.def+=5;game.state="PATH";render();});
 }
 
 else if(game.state==="PATH"){
-log("Choose a door...");
 btn("⬅ Left",enterRoom);
 btn("⬆ Forward",enterRoom);
 btn("➡ Right",enterRoom);
@@ -256,32 +255,33 @@ btn("Play Again",reset);
 }
 }
 
-function nextRoom(){
-game.state="PATH";
-render();
+function enterRoom(){
+game.room++; // ✅ ALWAYS increase
+
+if(game.room === game.maxRooms){
+startCombat(true);
 updateUI();
+return;
 }
 
-function enterRoom(){
-const r=roll();
+const r=Math.floor(Math.random()*6)+1;
 
 if(r<=3){
-log("[Room] Enemy!");
+log("[Room "+game.room+"] Enemy!");
 startCombat(false);
 }
 else if(r===4){
-log("[Room] Empty.");
+log("[Room "+game.room+"] Empty.");
 }
 else if(r===5){
-log("[Room] Potion +15 HP");
+log("[Room "+game.room+"] Potion +15 HP");
 game.player.hp+=15;
-updateUI();
 }
 else{
 loot();
 }
 
-game.state="PATH";
+updateUI();
 render();
 }
 
@@ -301,7 +301,7 @@ render();
 }
 
 function combatTurn(playerMove){
-if(game.state!=="COMBAT" || !game.enemy) return;
+if(game.state!=="COMBAT"||!game.enemy) return;
 
 const moves=["Punch","Counter","Quick Attack"];
 const enemyMove=moves[Math.floor(Math.random()*3)];
@@ -314,67 +314,63 @@ if(
 (playerMove==="Punch"&&enemyMove==="Counter")||
 (playerMove==="Counter"&&enemyMove==="Quick Attack")||
 (playerMove==="Quick Attack"&&enemyMove==="Punch")
-){
-pMod=1.0;eMod=0.25;
-}
+){pMod=1;eMod=0.25;}
+
 else if(
 (enemyMove==="Punch"&&playerMove==="Counter")||
 (enemyMove==="Counter"&&playerMove==="Quick Attack")||
 (enemyMove==="Quick Attack"&&playerMove==="Punch")
-){
-pMod=0.5;eMod=1.0;
-}
+){pMod=0.5;eMod=1;}
 
-let baseP=Math.max(1,game.player.atk-game.enemy.def+rand(-2,2));
-let dmgP=Math.floor(baseP*pMod);
+let dmgP=Math.floor((game.player.atk-game.enemy.def+rand(-2,2))*pMod);
+let critHit=Math.random()<game.player.crit;
 
-let isCrit=Math.random()<game.player.crit;
-if(isCrit){
+if(critHit){
 dmgP*=2;
 flash();
 }
 
-let baseE=Math.max(1,game.enemy.atk-game.player.def+rand(-2,2));
-let dmgE=Math.floor(baseE*eMod);
-
+dmgP=Math.max(1,dmgP);
 game.enemy.hp-=dmgP;
-showDamage(600,150,(isCrit?"CRIT ":"")+dmgP,isCrit?"yellow":"red");
-log(`You deal ${dmgP}${isCrit?" CRIT":""}`);
+
+showDamage(600,150,(critHit?"CRIT ":"")+dmgP,critHit?"yellow":"red");
+log(`You deal ${dmgP}`);
 
 if(game.enemy.hp<=0){
 log("Enemy defeated!");
 enemySprite.src="";
 game.enemy=null;
 
-/* 🔥 PROGRESSION FIX */
-game.room++;
-
-if(game.room === game.maxRooms){
-startCombat(true);
-return;
+if(game.isBoss){
+game.state="WIN";
+log("🏆 YOU WIN!");
+}else{
+game.state="PATH";
 }
 
-game.state="PATH";
 updateUI();
 render();
 return;
 }
 
+let dmgE=Math.floor((game.enemy.atk-game.player.def+rand(-2,2))*eMod);
+dmgE=Math.max(0,dmgE);
+
 game.player.hp-=dmgE;
+
 showDamage(150,150,dmgE,"white");
 log(`Enemy deals ${dmgE}`);
 
-updateUI();
-
 if(game.player.hp<=0){
-log("GAME OVER");
 game.state="GAMEOVER";
-render();
-}
+log("GAME OVER");
 }
 
-function rand(min,max){
-return Math.floor(Math.random()*(max-min+1))+min;
+updateUI();
+}
+
+function rand(a,b){
+return Math.floor(Math.random()*(b-a+1))+a;
 }
 
 function loot(){
@@ -387,14 +383,13 @@ if(item==="Sword") game.player.atk+=3;
 if(item==="Shield") game.player.def+=2;
 if(item==="Elixir") game.player.hp+=25;
 if(item==="Dagger") game.player.crit+=0.1;
-
-updateUI();
 }
 
 function reset(){
 game.player={hp:100,atk:10,def:5,crit:0.1};
 game.room=0;
 game.state="CREATION";
+game.enemy=null;
 logDiv.innerHTML="";
 enemySprite.src="";
 updateUI();
