@@ -11,7 +11,6 @@ font-family:monospace;
 text-align:center;
 }
 
-/* SCENE */
 #scene{
 position:relative;
 width:800px;
@@ -31,7 +30,6 @@ height:180px;
 #playerImg{ left:50px; }
 #enemyImg{ right:50px; }
 
-/* HP BARS */
 .hpBar{
 position:absolute;
 top:10px;
@@ -50,14 +48,6 @@ background:lime;
 border-radius:10px;
 }
 
-/* BUTTONS */
-button{
-margin:5px;
-padding:10px;
-width:160px;
-}
-
-/* LOG */
 #log{
 height:150px;
 overflow:auto;
@@ -68,7 +58,13 @@ margin:10px auto;
 width:800px;
 }
 
-/* DAMAGE TEXT */
+button{
+margin:5px;
+padding:10px;
+width:150px;
+}
+
+/* DAMAGE */
 .dmg{
 position:absolute;
 font-weight:bold;
@@ -109,16 +105,23 @@ animation:flash 0.2s;
 
 <div id="log"></div>
 
+<!-- ACTION BUTTONS -->
 <div>
 <button onclick="attack()">Punch</button>
 <button onclick="quick()">Quick</button>
 <button onclick="counter()">Counter</button>
 <button id="chestBtn" onclick="openChest()" style="display:none;">Open Chest</button>
-<button onclick="nextRoom()">Next</button>
+</div>
+
+<!-- DOORS -->
+<div>
+<button onclick="chooseDoor()">Left</button>
+<button onclick="chooseDoor()">Forward</button>
+<button onclick="chooseDoor()">Right</button>
 </div>
 
 <script>
-let player, enemy, room;
+let player, enemy, room, roomActive;
 
 function resetGame(){
 player = {
@@ -133,8 +136,11 @@ combo:0
 
 enemy=null;
 room=0;
+roomActive=false;
 
-nextRoom();
+log("Choose a door...");
+updateStats();
+updateHP();
 }
 
 function log(t){
@@ -153,6 +159,8 @@ document.getElementById("playerHP").style.width =
 if(enemy){
 document.getElementById("enemyHP").style.width =
 (enemy.hp/enemy.maxHp*100)+"%";
+}else{
+document.getElementById("enemyHP").style.width="0%";
 }
 }
 
@@ -172,37 +180,40 @@ setTimeout(()=>d.remove(),800);
 }
 
 function spawnEnemy(type){
-const img=document.getElementById("enemyImg");
-
 if(type==="boss"){
-img.src="boss.png";
+enemyImg.src="boss.png";
 enemy={hp:150,maxHp:150,atk:15,def:6,dodge:0.005};
 }else{
-img.src="enemy.png";
+enemyImg.src="enemy.png";
 enemy={hp:60,maxHp:60,atk:8,def:3,dodge:0.05};
 }
 }
 
-function nextRoom(){
+function chooseDoor(){
+if(roomActive){
+log("Finish the room first!");
+return;
+}
+
 if(room>=8){
 log("Dungeon complete!");
 return;
 }
 
 room++;
-document.getElementById("chestBtn").style.display="none";
+roomActive=true;
 
 let roll=Math.random();
 
 if(room===8){
 spawnEnemy("boss");
-log("Boss!");
+log("Boss room!");
 }
-else if(roll<0.5){
+else if(roll<0.6){
 spawnEnemy("normal");
 log("Enemy!");
 }
-else if(roll<0.8){
+else if(roll<0.85){
 enemy=null;
 enemyImg.src="chest.png";
 document.getElementById("chestBtn").style.display="inline";
@@ -212,6 +223,7 @@ else{
 enemy=null;
 enemyImg.src="";
 log("Empty room.");
+roomActive=false;
 }
 
 updateStats();
@@ -238,6 +250,7 @@ log("Potion");
 }
 
 enemyImg.src="";
+roomActive=false;
 updateStats();
 }
 
@@ -246,7 +259,7 @@ if(Math.random()<defender.dodge){
 return {miss:true};
 }
 
-let dmg = attacker.atk - defender.def;
+let dmg=attacker.atk-defender.def;
 if(dmg<1)dmg=1;
 
 let crit=false;
@@ -262,9 +275,12 @@ return {dmg,crit};
 }
 
 function attack(){
-if(!enemy)return;
+if(!enemy){
+log("No enemy!");
+return;
+}
 
-let p = calcHit(player,enemy);
+let p=calcHit(player,enemy);
 
 if(p.miss){
 showDamage(enemyImg,"MISS","gray");
@@ -273,7 +289,7 @@ enemy.hp-=p.dmg;
 showDamage(enemyImg,"-"+p.dmg,p.crit?"yellow":"red");
 }
 
-let e = calcHit(enemy,player);
+let e=calcHit(enemy,player);
 
 if(e.miss){
 showDamage(playerImg,"MISS","gray");
@@ -303,14 +319,15 @@ log("Win!");
 player.combo++;
 
 if(player.combo>=2){
-log("Combo hit!");
 let bonus=Math.floor(player.atk*1.5);
 showDamage(enemyImg,"-"+bonus,"orange");
+log("Combo strike!");
 player.combo=0;
 }
 
 enemy=null;
 enemyImg.src="";
+roomActive=false;
 }
 else if(player.hp<=0){
 log("You died!");
