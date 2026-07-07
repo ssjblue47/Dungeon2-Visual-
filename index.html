@@ -225,6 +225,9 @@ b.onclick=fn;
 actions.appendChild(b);
 }
 
+<!-- ONLY CHANGES ARE INSIDE JS -->
+<script>
+...
 function render(){
 clear();
 
@@ -248,12 +251,10 @@ btn("Quick Attack",()=>combatTurn("Quick Attack"));
 }
 
 else if(game.state==="GAMEOVER"){
-log("💀 GAME OVER");
 btn("🔄 Restart Run",reset);
 }
 
 else if(game.state==="WIN"){
-log("🏆 YOU WON");
 btn("🔄 Play Again",reset);
 }
 }
@@ -356,12 +357,13 @@ showDamage(600,150,(critHit?"CRIT ":"")+dmgP,critHit?"yellow":"red");
 log(`You deal ${dmgP}`);
 
 if(game.enemy.hp<=0){
-log("Enemy defeated!");
+log("✅ Enemy defeated!");
 enemySprite.src="";
 game.enemy=null;
 
 if(game.isBoss){
 game.state="WIN";
+log("🏆 YOU WIN THE DUNGEON!");
 }else{
 game.state="PATH";
 }
@@ -381,6 +383,7 @@ log(`Enemy deals ${dmgE}`);
 
 if(game.player.hp<=0){
 game.state="GAMEOVER";
+log("💀 YOU DIED!");
 }
 
 updateUI();
