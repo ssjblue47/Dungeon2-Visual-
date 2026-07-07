@@ -18,7 +18,6 @@ width:900px;
 margin:auto;
 }
 
-/* SCENE */
 #scene{
 position:relative;
 margin:20px auto;
@@ -29,7 +28,6 @@ border-radius:10px;
 overflow:hidden;
 }
 
-/* SPRITES */
 #playerSprite{
 position:absolute;
 left:50px;
@@ -44,7 +42,6 @@ bottom:20px;
 width:120px;
 }
 
-/* HP BARS */
 .hpBar{
 position:absolute;
 top:10px;
@@ -71,7 +68,6 @@ font-size:12px;
 top:0;
 }
 
-/* LOG */
 #log{
 height:200px;
 background:#000;
@@ -81,7 +77,6 @@ padding:10px;
 margin-top:10px;
 }
 
-/* BUTTONS */
 button{
 padding:10px;
 margin:5px;
@@ -92,7 +87,6 @@ border:none;
 cursor:pointer;
 }
 
-/* FLOAT DAMAGE */
 .damage{
 position:absolute;
 font-weight:bold;
@@ -105,7 +99,6 @@ pointer-events:none;
 100%{opacity:0;transform:translateY(-40px);}
 }
 
-/* CRIT FLASH */
 .critFlash{
 position:absolute;
 top:0;
@@ -184,7 +177,7 @@ d.style.left=x+"px";
 d.style.top=y+"px";
 d.style.color=color;
 d.innerText=text;
-document.getElementById("scene").appendChild(d);
+scene.appendChild(d);
 setTimeout(()=>d.remove(),1000);
 }
 
@@ -192,7 +185,7 @@ setTimeout(()=>d.remove(),1000);
 function flash(){
 const f=document.createElement("div");
 f.className="critFlash";
-document.getElementById("scene").appendChild(f);
+scene.appendChild(f);
 setTimeout(()=>f.remove(),200);
 }
 
@@ -205,12 +198,10 @@ def.innerText=game.player.def;
 room.innerText=`${game.room}/${game.maxRooms}`;
 crit.innerText=Math.floor(game.player.crit*100)+"%";
 
-/* PLAYER HP */
 let playerPercent=(game.player.hp/100)*100;
 playerHP.style.width=playerPercent+"%";
 playerHPText.innerText=`${game.player.hp}/100`;
 
-/* ENEMY HP */
 if(game.enemy){
 let max=game.isBoss?100:40;
 let percent=(game.enemy.hp/max)*100;
@@ -266,13 +257,6 @@ btn("Play Again",reset);
 }
 
 function nextRoom(){
-game.room++;
-
-if(game.room === game.maxRooms){
-startCombat(true);
-return;
-}
-
 game.state="PATH";
 render();
 updateUI();
@@ -287,21 +271,18 @@ startCombat(false);
 }
 else if(r===4){
 log("[Room] Empty.");
-game.state="PATH";
-render();
 }
 else if(r===5){
 log("[Room] Potion +15 HP");
 game.player.hp+=15;
 updateUI();
-game.state="PATH";
-render();
 }
 else{
 loot();
+}
+
 game.state="PATH";
 render();
-}
 }
 
 function startCombat(isBoss){
@@ -344,22 +325,18 @@ else if(
 pMod=0.5;eMod=1.0;
 }
 
-/* PLAYER DAMAGE */
 let baseP=Math.max(1,game.player.atk-game.enemy.def+rand(-2,2));
 let dmgP=Math.floor(baseP*pMod);
 
-/* CRIT */
 let isCrit=Math.random()<game.player.crit;
 if(isCrit){
-dmgP=Math.floor(dmgP*2);
+dmgP*=2;
 flash();
 }
 
-/* ENEMY DAMAGE */
 let baseE=Math.max(1,game.enemy.atk-game.player.def+rand(-2,2));
 let dmgE=Math.floor(baseE*eMod);
 
-/* APPLY */
 game.enemy.hp-=dmgP;
 showDamage(600,150,(isCrit?"CRIT ":"")+dmgP,isCrit?"yellow":"red");
 log(`You deal ${dmgP}${isCrit?" CRIT":""}`);
@@ -369,14 +346,15 @@ log("Enemy defeated!");
 enemySprite.src="";
 game.enemy=null;
 
-/* RETURN TO PATH instead of skipping */
-if(game.room >= game.maxRooms){
-game.state="WIN";
-log("🏆 YOU CLEARED THE DUNGEON!");
-}else{
-game.state="PATH";
+/* 🔥 PROGRESSION FIX */
+game.room++;
+
+if(game.room === game.maxRooms){
+startCombat(true);
+return;
 }
 
+game.state="PATH";
 updateUI();
 render();
 return;
